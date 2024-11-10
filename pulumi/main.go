@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci/core"
 	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci/identity"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -10,9 +12,9 @@ import (
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		cfg := config.New(ctx, "homestack-pulumi")
-		rootCompartmentId := cfg.Require("rootCompartmentId")
+		rootCompartmentId := cfg.GetSecret("rootCompartmentId")
 		compartment, err := identity.NewCompartment(ctx, "homestack", &identity.CompartmentArgs{
-			CompartmentId: pulumi.String(rootCompartmentId),
+			CompartmentId: rootCompartmentId,
 			Description:   pulumi.String("homestack compartment"),
 			Name:          pulumi.String("homestack"),
 			EnableDelete:  pulumi.Bool(true),
@@ -101,7 +103,7 @@ func main() {
 			return err
 		}
 
-		core.NewSubnet(ctx, "homestack-public-subnet", &core.SubnetArgs{
+		publicSubnet, err := core.NewSubnet(ctx, "homestack-public-subnet", &core.SubnetArgs{
 			CidrBlock:               pulumi.String("10.0.0.0/24"),
 			CompartmentId:           compartment.CompartmentId,
 			VcnId:                   vcn.ID(),
@@ -112,6 +114,55 @@ func main() {
 			RouteTableId:            routeTable.ID(),
 			SecurityListIds:         pulumi.StringArray{securityList.ID()},
 		})
+		if err != nil {
+			return err
+		}
+
+		publicSshKey := cfg.GetSecret("publicSshKey")
+
+		availabilityDomainName, ok := compartment.CompartmentId.ApplyT(func(compartmentId string) (string, error) {
+			availabilityDomains, err := identity.GetAvailabilityDomains(ctx, &identity.GetAvailabilityDomainsArgs{
+				CompartmentId: compartmentId,
+			})
+			if err != nil {
+				return "", err
+			}
+
+			return availabilityDomains.AvailabilityDomains[0].Name, nil
+		}).(pulumi.StringOutput)
+		if !ok {
+			return fmt.Errorf("failed to get availability domain name")
+		}
+
+		exitNode, err := core.NewInstance(ctx, "homestack-exit-node", &core.InstanceArgs{
+			AvailabilityDomain: availabilityDomainName,
+			CompartmentId:      compartment.CompartmentId,
+			Shape:              pulumi.String("VM.Standard.A1.Flex"),
+			CreateVnicDetails: &core.InstanceCreateVnicDetailsArgs{
+				AssignPrivateDnsRecord: pulumi.Bool(true),
+				AssignPublicIp:         pulumi.String("true"),
+				DisplayName:            pulumi.String("homestack-exit-node-vnic"),
+				SubnetId:               publicSubnet.ID(),
+			},
+			Metadata: pulumi.StringMap{
+				"ssh_authorized_keys": publicSshKey,
+			},
+			SourceDetails: core.InstanceSourceDetailsArgs{
+				SourceType: pulumi.String("image"),
+				// Canonical-Ubuntu-24.04-aarch64-2024.10.09-0
+				SourceId: pulumi.String("ocid1.image.oc1.ap-singapore-1.aaaaaaaasfd4dtdnlhdzmhourzf5xvejewlubymjbqvph54xcekmlrk6pw7q"),
+			},
+			ShapeConfig: core.InstanceShapeConfigArgs{
+				Ocpus:       pulumi.Float64(4),
+				MemoryInGbs: pulumi.Float64(24),
+			},
+			DisplayName: pulumi.String("homestack-exit-node"),
+		})
+		if err != nil {
+			return err
+		}
+
+		ctx.Export("exit_node_public_ip", exitNode.PublicIp)
 
 		return nil
 	})
