@@ -1,0 +1,7 @@
+name: homestack-pulumi
+description: Pulumi IaC for Homestack
+runtime: go
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: go

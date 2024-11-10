@@ -1,0 +1,17 @@
+{
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Sid": "Statement1",
+			"Effect": "Allow",
+			"Principal": {
+				"AWS": "arn:aws:iam::719311097242:user/homestack-iac"
+			},
+			"Action": "s3:*",
+			"Resource": [
+				"arn:aws:s3:::homestack-pulumi-state",
+				"arn:aws:s3:::homestack-pulumi-state/*"
+			]
+		}
+	]
+}
