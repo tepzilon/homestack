@@ -13,5 +13,6 @@
   - User `homestack-iac`
     - API Keys
       - Private/Public key pairs
+    - Exit node SSH key pair
 
 
