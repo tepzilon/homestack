@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/pulumi/pulumi-cloudflare/sdk/v5/go/cloudflare"
 	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci/core"
 	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci/identity"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -161,6 +162,15 @@ func main() {
 		if err != nil {
 			return err
 		}
+
+		cloudflareZoneId := cfg.GetSecret("cloudflareZoneId")
+
+		cloudflare.NewRecord(ctx, "homestack-exit-node-dns-record", &cloudflare.RecordArgs{
+			Content: exitNode.PublicIp,
+			Name:    pulumi.String("home"),
+			Type:    pulumi.String("A"),
+			ZoneId:  cloudflareZoneId,
+		})
 
 		ctx.Export("exit_node_public_ip", exitNode.PublicIp)
 
