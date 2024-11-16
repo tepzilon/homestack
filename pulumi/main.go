@@ -98,6 +98,17 @@ func main() {
 					SourceType: pulumi.String("CIDR_BLOCK"),
 					Stateless:  pulumi.Bool(false),
 				},
+				core.SecurityListIngressSecurityRuleArgs{
+					Protocol:    pulumi.String("6"), // TCP
+					Source:      pulumi.String("0.0.0.0/0"),
+					Description: pulumi.String("Portainer"),
+					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
+						Max: pulumi.Int(9443),
+						Min: pulumi.Int(9443),
+					},
+					SourceType: pulumi.String("CIDR_BLOCK"),
+					Stateless:  pulumi.Bool(false),
+				},
 			},
 		})
 		if err != nil {
