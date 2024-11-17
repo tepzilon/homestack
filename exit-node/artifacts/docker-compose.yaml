@@ -1,0 +1,36 @@
+version: '3'
+
+services:
+  reverse-proxy:
+    image: nginx:latest
+    ports:
+      - 80:80
+      - 443:443
+    restart: always
+    volumes:
+      - ./nginx/conf:/etc/nginx/conf.d/:ro
+      - ./certbot/www/:/var/www/certbot/:ro
+      - ./certbot/conf/:/etc/nginx/ssl/:ro
+
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - ./certbot/www/:/var/www/certbot/:rw
+      - ./certbot/conf/:/etc/letsencrypt/:rw
+
+  portainer:
+    image: portainer/portainer-ce:2.21.4
+    ports:
+      - 8000:8000
+      - 9443:9443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+      - ./certbot/conf/:/certs/:ro
+    restart: always
+    command:
+      --sslcert /certs/live/home.tepzilon.com/fullchain.pem
+      --sslkey /certs/live/home.tepzilon.com/privkey.pem
+
+volumes:
+  portainer-data:
