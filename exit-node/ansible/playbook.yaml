@@ -1,0 +1,17 @@
+- name: User tepzilon
+  hosts: exit-node
+  become: true
+  remote_user: ubuntu
+  tasks:
+    - name: Add user tepzilon
+      ansible.builtin.user:
+        name: tepzilon
+        comment: "Techid Janphaka"
+        shell: /bin/bash
+        password: "$6$rounds=656000$exposedsalt$mlL0jIYb86sxXIgXg4p59pMml/ELjN45xQMHDyZEZFwQ51d9updS3KjnV4mWeaaM4Gd7cvICY9vy6PBPbc56h/"
+        group: sudo
+    - name: Add SSH key to user tepzilon
+      ansible.posix.authorized_key:
+        user: tepzilon
+        state: present
+        key: "{{ lookup('file', '../secrets/homestack-ssh-key.pub') }}"
