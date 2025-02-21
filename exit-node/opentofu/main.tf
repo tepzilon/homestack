@@ -8,6 +8,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "5.87.0"
     }
+    cloudflare = {
+      source  = "hashicorp/cloudflare"
+      version = "5.1.0"
+    }
   }
 
   backend "s3" {
@@ -24,6 +28,10 @@ provider "oci" {
   private_key  = data.aws_kms_secrets.oci.plaintext["private_key"]
   fingerprint  = data.aws_kms_secrets.oci.plaintext["fingerprint"]
   region       = "ap-singapore-1"
+}
+
+provider "cloudflare" {
+  api_token = data.aws_kms_secrets.cloudflare.plaintext["api_token"]
 }
 
 variable "kms_key_id" {
@@ -54,9 +62,180 @@ data "aws_kms_secrets" "oci" {
   }
 }
 
-resource "oci_identity_compartment" "homestack" {
+data "aws_kms_secrets" "cloudflare" {
+  secret {
+    name    = "api_token"
+    payload = "AQICAHhdhDx+mvb065S66mmsEOw5VGksyFAQFNIgM/njoXpYDwHHv76BjkNx+P3vEXuMxypDAAAAhzCBhAYJKoZIhvcNAQcGoHcwdQIBADBwBgkqhkiG9w0BBwEwHgYJYIZIAWUDBAEuMBEEDL0nJGlXBt/mUBhW6wIBEIBDQ1TFEQCqc7CTjm4LgQylFGZV5Qg+9+DIekEp1MCXvAMM0NnKRAF49wFEsQYFGWxgzpeoewlwrcOPlwNn95SkkS3YfQ=="
+    key_id  = var.kms_key_id
+  }
+  secret {
+    name    = "zone_id"
+    payload = "AQICAHhdhDx+mvb065S66mmsEOw5VGksyFAQFNIgM/njoXpYDwGrtWG2g1QYGoV7XxAp74WiAAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQMsNLVulbFKJsRTVhLAgEQgDtto+UdMLab2ymOW1/gibQ30IsOdii/vqt1trCSTcYrQ8yb69qDZDfsiir+8OJJ1Z+FEpZI00SOJvVGog=="
+    key_id  = var.kms_key_id
+  }
+}
+
+data "aws_kms_secrets" "exit_node" {
+  secret {
+    name    = "public_ssh_key"
+    payload = "AQICAHhdhDx+mvb065S66mmsEOw5VGksyFAQFNIgM/njoXpYDwHiunTsghtGp7OBHVAJkqvWAAAA1zCB1AYJKoZIhvcNAQcGoIHGMIHDAgEAMIG9BgkqhkiG9w0BBwEwHgYJYIZIAWUDBAEuMBEEDI6HlyKL/QLFN9FfqwIBEICBj/AqqWvn7HxAfMH0Uw6rN2SozGo+2yJ4H2cNI0YyjOVQJK6ZcTwAJPzuzKxHlWOiujxQiZTeMQhDvcEbqQeHopPzxgvbbLMwQrX1RFoNPlxXqpns7xf6yijyyZkIx+rjhNoY4nXLtBSrEIfkeNGV51mFaIp5xAKzHhxhqLG8r3M9sGJqMA8a8ozxin42lI5Y"
+    key_id  = var.kms_key_id
+  }
+}
+
+// identity compartment
+resource "oci_identity_compartment" "homestack_ic" {
   compartment_id = data.aws_kms_secrets.oci.plaintext["tenancy_ocid"]
   description    = "homestack compartment"
   name           = "homestack"
   enable_delete  = true
+}
+
+// virtual cloud network
+resource "oci_core_vcn" "homestack_vcn" {
+  compartment_id = oci_identity_compartment.homestack_ic.compartment_id
+  cidr_block     = "10.0.0.0/16"
+  display_name   = "homestack-vcn"
+  dns_label      = "homenetwork"
+}
+
+// internet gateway
+resource "oci_core_internet_gateway" "homestack_igw" {
+  compartment_id = oci_identity_compartment.homestack_ic.compartment_id
+  vcn_id         = oci_core_vcn.homestack_vcn.id
+  enabled        = true
+  display_name   = "homestack-igw"
+}
+
+// route table
+resource "oci_core_route_table" "homestack_route_table" {
+  compartment_id = oci_identity_compartment.homestack_ic.compartment_id
+  vcn_id         = oci_core_vcn.homestack_vcn.id
+  display_name   = "homestack-route-table"
+  route_rules {
+    network_entity_id = oci_core_internet_gateway.homestack_igw.id
+    destination       = "0.0.0.0/0"
+    destination_type  = "CIDR_BLOCK"
+  }
+}
+
+// security list
+resource "oci_core_security_list" "homestack_security_list" {
+  compartment_id = oci_identity_compartment.homestack_ic.compartment_id
+  vcn_id         = oci_core_vcn.homestack_vcn.id
+  display_name   = "homestack-security-list"
+  egress_security_rules {
+    destination      = "0.0.0.0/0"
+    protocol         = "all"
+    destination_type = "CIDR_BLOCK"
+    stateless        = false
+  }
+  ingress_security_rules {
+    protocol    = 6 // TCP
+    source      = "0.0.0.0/0"
+    description = "SSH from anywhere"
+    tcp_options {
+      min = 22
+      max = 22
+    }
+    source_type = "CIDR_BLOCK"
+    stateless   = false
+  }
+  ingress_security_rules {
+    protocol    = 1 // ICMP
+    source      = "0.0.0.0/0"
+    description = "ICMP from anywhere"
+    icmp_options {
+      type = 8 // echo
+    }
+    source_type = "CIDR_BLOCK"
+    stateless   = false
+  }
+  ingress_security_rules {
+    protocol    = 6 // TCP
+    source      = "0.0.0.0/0"
+    description = "Portainer from anywhere"
+    tcp_options {
+      min = 9443
+      max = 9443
+    }
+    source_type = "CIDR_BLOCK"
+    stateless   = false
+  }
+  ingress_security_rules {
+    protocol    = 6 // TCP
+    source      = "0.0.0.0/0"
+    description = "HTTP from anywhere"
+    tcp_options {
+      min = 80
+      max = 80
+    }
+    source_type = "CIDR_BLOCK"
+    stateless   = false
+  }
+  ingress_security_rules {
+    protocol    = 6 // TCP
+    source      = "0.0.0.0/0"
+    description = "HTTPS from anywhere"
+    tcp_options {
+      min = 443
+      max = 443
+    }
+    source_type = "CIDR_BLOCK"
+    stateless   = false
+  }
+}
+
+// public subnet
+resource "oci_core_subnet" "homestack_public_subnet" {
+  cidr_block                 = "10.0.0.0/24"
+  compartment_id             = oci_identity_compartment.homestack_ic.compartment_id
+  vcn_id                     = oci_core_vcn.homestack_vcn.id
+  display_name               = "homestack-public-subnet"
+  dns_label                  = "publicsubnet"
+  prohibit_internet_ingress  = false
+  prohibit_public_ip_on_vnic = false
+  route_table_id             = oci_core_route_table.homestack_route_table.id
+  security_list_ids          = [oci_core_security_list.homestack_security_list.id]
+}
+
+// availability domain
+data "oci_identity_availability_domain" "homestack_ad" {
+  compartment_id = oci_identity_compartment.homestack_ic.compartment_id
+  ad_number      = 1
+}
+
+// exit node instance
+resource "oci_core_instance" "homestack_exit_node" {
+  availability_domain = data.oci_identity_availability_domain.homestack_ad.name
+  compartment_id      = oci_identity_compartment.homestack_ic.compartment_id
+  shape               = "VM.Standard.A1.Flex"
+  create_vnic_details {
+    assign_private_dns_record = true
+    assign_public_ip          = true
+    display_name              = "homestack-exit-node-vnic"
+    subnet_id                 = oci_core_subnet.homestack_public_subnet.id
+  }
+  metadata = {
+    ssh_authorized_keys = data.aws_kms_secrets.exit_node.plaintext["public_ssh_key"]
+  }
+  source_details {
+    source_type = "image"
+    # Canonical-Ubuntu-24.04-aarch64-2024.10.09-0
+    # see: https://docs.oracle.com/en-us/iaas/images/ubuntu-2404/canonical-ubuntu-24-04-aarch64-2024-10-09-0.htm
+    source_id = "ocid1.image.oc1.ap-singapore-1.aaaaaaaasfd4dtdnlhdzmhourzf5xvejewlubymjbqvph54xcekmlrk6pw7q"
+  }
+  shape_config {
+    ocpus         = 4
+    memory_in_gbs = 24
+  }
+  display_name = "homestack-exit-node"
+}
+
+resource "cloudflare_dns_record" "homestack_exit_node_dns_record" {
+  name    = "home"
+  type    = "A"
+  zone_id = data.aws_kms_secrets.cloudflare.plaintext["zone_id"]
+  content = oci_core_instance.homestack_exit_node.public_ip
+  ttl     = 1
 }
