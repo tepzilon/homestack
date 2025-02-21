@@ -14,7 +14,7 @@
       ansible.posix.authorized_key:
         user: tepzilon
         state: present
-        key: "{{ lookup('file', '../secrets/homestack-ssh-key.pub') }}"
+        key: "{{ lookup('file', '../secrets/homestack-exit-node-ssh-key.pub') }}"
 
 - name: Install Docker
   hosts: exit-node
