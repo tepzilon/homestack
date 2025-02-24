@@ -53,16 +53,18 @@
         update_cache: true
     # There is a problem where docker container cannot access internet.
     # The root cause is one of the rule in iptables chain FORWARD rejected packets.
-    # Solving this by adding the rule in iptables chain DOCKER-USER to accept all packets from/to Docker network
+    # Solving this by adding the rule in iptables chain DOCKER-USER to accept all packets from/to Docker network [*]
     - name: Add iptables rule for Docker network (incoming packets)
       ansible.builtin.iptables:
         chain: DOCKER-USER
-        source: 172.17.0.0/16
+        source: 172.18.0.0/16
+        action: insert
         jump: ACCEPT
     - name: Add iptables rule for Docker network (outgoing packets)
       ansible.builtin.iptables:
         chain: DOCKER-USER
-        destination: 172.17.0.0/16
+        destination: 172.18.0.0/16
+        action: insert
         jump: ACCEPT
     # TODO: find a way to persist iptables rules
 
