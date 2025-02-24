@@ -51,3 +51,61 @@
         name: docker-ce
         state: latest
         update_cache: true
+    # There is a problem where docker container cannot access internet.
+    # The root cause is one of the rule in iptables chain FORWARD rejected packets.
+    # Solving this by adding the rule in iptables chain DOCKER-USER to accept all packets from/to Docker network [*]
+    - name: Add iptables rule for Docker network (incoming packets)
+      ansible.builtin.iptables:
+        chain: DOCKER-USER
+        source: 172.18.0.0/16
+        action: insert
+        jump: ACCEPT
+    - name: Add iptables rule for Docker network (outgoing packets)
+      ansible.builtin.iptables:
+        chain: DOCKER-USER
+        destination: 172.18.0.0/16
+        action: insert
+        jump: ACCEPT
+    # TODO: find a way to persist iptables rules
+
+- name: Run Docker stack
+  hosts: exit-node
+  become: true
+  remote_user: tepzilon
+  tasks:
+    - name: Create a homestack directory
+      ansible.builtin.file:
+        path: /home/tepzilon/homestack
+        state: directory
+        owner: tepzilon
+        group: sudo
+        mode: "0774"
+    - name: Copy Docker compose file
+      ansible.builtin.copy:
+        src: ../services/docker-compose.yaml
+        dest: /home/tepzilon/homestack/docker-compose.yaml
+        owner: tepzilon
+        group: sudo
+        mode: "0774"
+    - name: Create a NGINX config directory
+      ansible.builtin.file:
+        path: /home/tepzilon/homestack/nginx/conf
+        state: directory
+        owner: tepzilon
+        group: sudo
+        mode: "0774"
+    - name: Copy NGINX default http config file
+      ansible.builtin.copy:
+        src: ../services/nginx-default-http.conf
+        dest: /home/tepzilon/homestack/nginx/conf/nginx-default-http.conf
+        owner: tepzilon
+        group: sudo
+        mode: "0774"
+    - name: Create and start services
+      community.docker.docker_compose_v2:
+        project_src: /home/tepzilon/homestack
+      register: output
+    - name: Show services creation and start results
+      ansible.builtin.debug:
+        var: output
+# TODO: automate cerbot, make NGINX https

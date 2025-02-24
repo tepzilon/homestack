@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 services:
   reverse-proxy:
@@ -28,9 +28,17 @@ services:
       - portainer-data:/data
       - ./certbot/conf/:/certs/:ro
     restart: always
-    command:
-      --sslcert /certs/live/home.tepzilon.com/fullchain.pem
+    command: --sslcert /certs/live/home.tepzilon.com/fullchain.pem
       --sslkey /certs/live/home.tepzilon.com/privkey.pem
 
 volumes:
   portainer-data:
+
+# [*]
+networks:
+  default:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.18.0.0/16
