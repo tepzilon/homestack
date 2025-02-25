@@ -1,4 +1,5 @@
-- name: User tepzilon
+- name: Manage user
+  tags: manage-user
   hosts: exit-node
   become: true
   remote_user: ubuntu
@@ -17,6 +18,7 @@
         key: "{{ lookup('file', '../secrets/homestack-exit-node-ssh-key.pub') }}"
 
 - name: Install Docker
+  tags: install-docker
   hosts: exit-node
   become: true
   remote_user: tepzilon
@@ -68,7 +70,8 @@
         jump: ACCEPT
     # TODO: find a way to persist iptables rules
 
-- name: Run Docker stack
+- name: Run Docker services
+  tags: run-docker-services
   hosts: exit-node
   become: true
   remote_user: tepzilon
@@ -108,4 +111,69 @@
     - name: Show services creation and start results
       ansible.builtin.debug:
         var: output
-# TODO: automate cerbot, make NGINX https
+
+- name: Generate certificate
+  hosts: exit-node
+  become: true
+  remote_user: tepzilon
+  tags: generate-certificate
+  tasks:
+    - name: Remove NGINX default https config file
+      ansible.builtin.file:
+        path: /home/tepzilon/homestack/nginx/conf/nginx-default-https.conf
+        state: absent
+    - name: Reload NGINX
+      community.docker.docker_compose_v2_exec:
+        service: reverse-proxy
+        argv:
+          - nginx
+          - -s
+          - reload
+        project_src: /home/tepzilon/homestack
+    - name: Run certbot
+      community.docker.docker_compose_v2_run:
+        service: certbot
+        argv:
+          - certonly
+          - --webroot
+          - --webroot-path
+          - /var/www/certbot/
+          - --non-interactive
+          - --agree-tos
+          - --email
+          - techid2000@gmail.com
+          - --domains
+          - home.tepzilon.com
+        project_src: /home/tepzilon/homestack
+      register: result
+    - name: Print stdout
+      ansible.builtin.debug:
+        var: result.stdout
+    - name: Copy NGINX default https config file
+      ansible.builtin.copy:
+        src: ../services/nginx-default-https.conf
+        dest: /home/tepzilon/homestack/nginx/conf/nginx-default-https.conf
+        owner: tepzilon
+        group: sudo
+        mode: "0774"
+    - name: Reload NGINX
+      community.docker.docker_compose_v2_exec:
+        service: reverse-proxy
+        argv:
+          - nginx
+          - -s
+          - reload
+        project_src: /home/tepzilon/homestack
+
+- name: Renew certificate
+  hosts: exit-node
+  become: true
+  remote_user: tepzilon
+  tags: renew-certificate
+  tasks:
+    - name: Run certbot renew
+      community.docker.docker_compose_v2_run:
+        service: certbot
+        argv:
+          - renew
+        project_src: /home/tepzilon/homestack
