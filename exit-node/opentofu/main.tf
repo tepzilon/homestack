@@ -173,6 +173,17 @@ resource "oci_core_security_list" "homestack_security_list" {
     source_type = "CIDR_BLOCK"
     stateless   = false
   }
+  ingress_security_rules {
+    protocol    = 17 // UDP
+    source      = "0.0.0.0/0"
+    description = "Wireguard UDP from anywhere"
+    udp_options {
+      min = 51820
+      max = 51820
+    }
+    source_type = "CIDR_BLOCK"
+    stateless   = false
+  }
 }
 
 // public subnet

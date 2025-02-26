@@ -1,4 +1,4 @@
-# opentofu
+# Opentofu
 
 ```
 aws configure --profile homestack-iac
@@ -25,7 +25,7 @@ $ aws kms decrypt \
     | base64 --decode
 ```
 
-# ansible
+# Ansible
 
 Generate hashed password
 
@@ -40,16 +40,36 @@ Play
 $ ansible-playbook -i inventory.ini playbook.yaml --ask-become-pass
 ```
 
+# Services
+
+## Wireguard
+
+PersistentKeepalive: 25
+
+- Exit node
+  - Allowed IP has to be 10.8.0.0/24 (allow only peer packets)
+  - (nit) Endpoint to be localhost:51820
+- Clients
+  - Allowed IP is 0.0.0.0/0 (route every packets through VPN)
+
 # Secret hint
 
-- Exit node SSH key pair
-  - secrets/homestack-exit-node-ssh-key
-  - secrets/homestack-exit-node-ssh-key.pub
-- Exit node user `tepzilon` password
-  - ansible/secrets/user-tepzilon-password
-- OCI `homestack-iac` private key
-  - opentofu/secrets/homestack-iac-YYYY-MM-DDT_XX_XX.XXXZ.pem
-- Cloudflare API token
-  - opentofu/secrets/cloudflare-api-token
-- Backup AWS credentials (optional)
-  - opentofu/secrets/backup-aws-credentials
+- exit-node
+  - secrets
+    - homestack-exit-node-ssh-key
+    - homestack-exit-node-ssh-key.pub
+  - ansible
+    - secrets
+      - user-tepzilon-password
+  - opentofu
+    - secrets
+      - backup-aws-credentials
+      - cloudflare-api-token
+      - homestack-iac-YYYY-MM-DDT_XX_XX.XXXZ.pem (OCI)
+  - secrets
+    - wg-dell-notebook
+      - homestack.conf
+    - wg-exit-node
+      - homestack.conf
+    - portainer-admin-password
+    - wg-easy-admin-password

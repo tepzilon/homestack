@@ -177,3 +177,33 @@
         argv:
           - renew
         project_src: /home/tepzilon/homestack
+
+- name: Setup Wireguard
+  tags: setup-wireguard
+  hosts: exit-node
+  become: true
+  remote_user: tepzilon
+  tasks:
+    - name: Install wireguard
+      ansible.builtin.apt:
+        pkg:
+          - wireguard
+        state: latest
+        update_cache: true
+    - name: Create a Wireguard config directory
+      ansible.builtin.file:
+        path: /home/tepzilon/homestack/wg
+        state: directory
+        owner: tepzilon
+        group: sudo
+        mode: "0774"
+    - name: Copy wireguard config file
+      ansible.builtin.copy:
+        src: ../services/secrets/wg-exit-node/homestack.conf
+        dest: /home/tepzilon/homestack/wg/homestack.conf
+        owner: tepzilon
+        group: sudo
+        mode: "0774"
+    - name: Connect to server
+      ansible.builtin.command: wg-quick up /home/tepzilon/homestack/wg/homestack.conf
+# TODO: refactor split tasks, make duplicate task reusable
