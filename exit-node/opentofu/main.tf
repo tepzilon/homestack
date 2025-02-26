@@ -154,17 +154,6 @@ resource "oci_core_security_list" "homestack_security_list" {
   ingress_security_rules {
     protocol    = 6 // TCP
     source      = "0.0.0.0/0"
-    description = "Portainer from anywhere"
-    tcp_options {
-      min = 9443
-      max = 9443
-    }
-    source_type = "CIDR_BLOCK"
-    stateless   = false
-  }
-  ingress_security_rules {
-    protocol    = 6 // TCP
-    source      = "0.0.0.0/0"
     description = "HTTP from anywhere"
     tcp_options {
       min = 80
