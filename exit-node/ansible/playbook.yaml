@@ -9,7 +9,7 @@
         name: tepzilon
         comment: "Techid Janphaka"
         shell: /bin/bash
-        password: "$6$rounds=656000$exposedsalt$mlL0jIYb86sxXIgXg4p59pMml/ELjN45xQMHDyZEZFwQ51d9updS3KjnV4mWeaaM4Gd7cvICY9vy6PBPbc56h/"
+        password: "$6$rounds=656000$exposedsalt$hCJYREEiBwnj9cr5zY8q1EOC3rgSsh51V0B4CnXutW5NKAofpNf9oF74/zJYnV0UhTj7SjgyWvailrZcPGLzd."
         group: sudo
     - name: Add SSH key to user tepzilon
       ansible.posix.authorized_key:
