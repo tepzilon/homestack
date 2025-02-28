@@ -70,10 +70,11 @@ PersistentKeepalive: 25
       - backup-aws-credentials
       - cloudflare-api-token
       - homestack-iac-YYYY-MM-DDT_XX_XX.XXXZ.pem (OCI)
-  - secrets
-    - wg-dell-notebook
-      - homestack.conf
-    - wg-exit-node
-      - homestack.conf
-    - portainer-admin-password
-    - wg-easy-admin-password
+  - services
+    - secrets
+      - wg-dell-notebook
+        - homestack.conf
+      - wg-exit-node
+        - homestack.conf
+      - portainer-admin-password
+      - wg-easy-admin-password
