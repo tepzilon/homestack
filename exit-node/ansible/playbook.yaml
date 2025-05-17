@@ -165,18 +165,33 @@
           - reload
         project_src: /home/tepzilon/homestack
 
-- name: Renew certificate
+# This somehow not working
+#
+# - name: Renew certificate
+#   hosts: exit-node
+#   become: true
+#   remote_user: tepzilon
+#   tags: renew-certificate
+#   tasks:
+#     - name: Run certbot renew
+#       community.docker.docker_compose_v2_run:
+#         service: certbot
+#         argv:
+#           - renew
+#           - --force-renew
+#         project_src: /home/tepzilon/homestack
+
+- name: Setup cron renew certificate
   hosts: exit-node
-  become: true
   remote_user: tepzilon
-  tags: renew-certificate
+  tags: setup-cron-renew-certificate
   tasks:
-    - name: Run certbot renew
-      community.docker.docker_compose_v2_run:
-        service: certbot
-        argv:
-          - renew
-        project_src: /home/tepzilon/homestack
+    - name: Ensure cron renew certificate
+      ansible.builtin.cron:
+        name: "renew certificate"
+        minute: "0"
+        hour: "*/12"
+        job: "sudo docker compose -f /home/tepzilon/homestack/docker-compose.yaml run --rm certbot renew --force-renew"
 
 - name: Setup Wireguard
   tags: setup-wireguard
