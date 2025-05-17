@@ -47,14 +47,17 @@ $ ansible-playbook -i inventory.ini playbook.yaml --ask-become-pass
 PersistentKeepalive: 25
 
 - Exit node
-  - Remove DNS
-    - Since it'll then call `resolvctl -a homestack -m 0 -x`
-    - Caused adding `nameserver X.X.X.X` to the file `/run/systemd/resolve/resolv.conf`
-    - Then the exit node will not be able to access to internet (cannot resolve DNS somehow)
-  - Allowed IP has to be 10.8.0.0/24 (allow only peer packets)
-  - (nit) Endpoint should be 127.0.0.1:51820 or localhost:51820
+  - Interface
+    - Remove DNS
+      - Since it'll then call `resolvctl -a homestack -m 0 -x`
+      - Caused adding `nameserver X.X.X.X` to the file `/run/systemd/resolve/resolv.conf`
+      - Then the exit node will not be able to access to internet (somehow cannot resolve DNS)
+  - Peer
+    - Since peers are clients, so allowed IP has to be 10.8.0.0/24 (only packets with 10.8.x.x will route to peers)
+    - (nit) Endpoint should be 127.0.0.1:51820 or localhost:51820
 - Clients
-  - Allowed IP is 0.0.0.0/0 (route every packets through VPN)
+  - Peer
+    - Since peer is the exit node, so allowed IP is 0.0.0.0/0 (route every packets through VPN)
 
 # Secret hint
 
